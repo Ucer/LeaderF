@@ -328,11 +328,12 @@ class FileExplorer(Explorer):
         return cmd
 
     def _writeCache(self, content):
+        dir = self._cur_dir if self._cur_dir.endswith(os.sep) else self._cur_dir + os.sep
         with lfOpen(self._cache_index, 'r+', errors='ignore') as f:
             lines = f.readlines()
             target = -1
             for i, line in enumerate(lines):
-                if self._cur_dir == line.split(None, 2)[2].strip():
+                if dir == line.split(None, 2)[2].strip():
                     target = i
                     break
 
@@ -355,7 +356,7 @@ class FileExplorer(Explorer):
                     f.seek(0, 2)
                     ts = time.time()
                     # e.g., line = "1496669495.329 cache_1496669495.329 /foo/bar"
-                    line = '%.3f cache_%.3f %s\n' % (ts, ts, self._cur_dir)
+                    line = '%.3f cache_%.3f %s\n' % (ts, ts, dir)
                     f.write(line)
                     cache_file_name = 'cache_%.3f' % ts
                 else:
@@ -366,7 +367,7 @@ class FileExplorer(Explorer):
                             timestamp = line.split(None, 2)[0]
                             oldest = i
                     cache_file_name = lines[oldest].split(None, 2)[1].strip()
-                    lines[oldest] = '%.3f %s %s\n' % (time.time(), cache_file_name, self._cur_dir)
+                    lines[oldest] = '%.3f %s %s\n' % (time.time(), cache_file_name, dir)
 
                     f.seek(0)
                     f.truncate(0)
@@ -378,11 +379,12 @@ class FileExplorer(Explorer):
                         cache_file.write(line + '\n')
 
     def _getFilesFromCache(self):
+        dir = self._cur_dir if self._cur_dir.endswith(os.sep) else self._cur_dir + os.sep
         with lfOpen(self._cache_index, 'r+', errors='ignore') as f:
             lines = f.readlines()
             target = -1
             for i, line in enumerate(lines):
-                if self._cur_dir == line.split(None, 2)[2].strip():
+                if dir == line.split(None, 2)[2].strip():
                     target = i
                     break
 
@@ -404,8 +406,8 @@ class FileExplorer(Explorer):
                     if lfEval("g:Lf_ShowRelativePath") == '1':
                         if os.path.isabs(file_list[0]):
                             # os.path.relpath() is too slow!
-                            cwd_length = len(lfEncode(self._cur_dir))
-                            if not self._cur_dir.endswith(os.sep):
+                            cwd_length = len(lfEncode(dir))
+                            if not dir.endswith(os.sep):
                                 cwd_length += 1
                             return [line[cwd_length:] for line in file_list]
                         else:
@@ -414,7 +416,7 @@ class FileExplorer(Explorer):
                         if os.path.isabs(file_list[0]):
                             return file_list
                         else:
-                            return [os.path.join(lfEncode(self._cur_dir), file) for file in file_list]
+                            return [os.path.join(lfEncode(dir), file) for file in file_list]
             else:
                 return None
 
@@ -440,12 +442,13 @@ class FileExplorer(Explorer):
                 not self._content:
             self._cur_dir = dir
 
-            if lfEval("g:Lf_UseCache") == '1':
+            cmd = self._buildCmd(dir)
+
+            if lfEval("g:Lf_UseCache") == '1' and kwargs.get("refresh", False) == False:
                 self._content = self._getFilesFromCache()
                 if self._content:
                     return self._content
 
-            cmd = self._buildCmd(dir)
             if cmd:
                 executor = AsyncExecutor()
                 self._executor.append(executor)
@@ -463,7 +466,7 @@ class FileExplorer(Explorer):
     def getFreshContent(self, *args, **kwargs):
         if self._external_cmd:
             self._content = []
-            return self.getContent(*args, **kwargs)
+            return self.getContent(*args, **kwargs, refresh=True)
 
         self._refresh()
         self._content = self._getFileList(self._cur_dir)
