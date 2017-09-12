@@ -466,7 +466,8 @@ class FileExplorer(Explorer):
     def getFreshContent(self, *args, **kwargs):
         if self._external_cmd:
             self._content = []
-            return self.getContent(*args, **kwargs, refresh=True)
+            kwargs["refresh"] = True
+            return self.getContent(*args, **kwargs)
 
         self._refresh()
         self._content = self._getFileList(self._cur_dir)
